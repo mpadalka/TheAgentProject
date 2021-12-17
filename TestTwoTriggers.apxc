@@ -1,0 +1,66 @@
+@isTest
+private class TestTwoTriggers{
+    @isTest static void InteUpdate_DealCreate() {
+        // Test data setup:
+        // create an Interest along with the related masters,
+        // and then update its status from New to Converted:
+        DateTime dt = Date.Today().addDays(+ 21); // 3 weeks forward)
+        Date dFuture = Date.newInstance(dt.year(), dt.month(), dt.day());
+        //
+		Interest__c intr= new Interest__c( Status__c= 'New',
+        						Converted_Date__c= dFuture ); 
+		Client__c   clin= new Client__c( Name= 'Test Client',
+        						Phone__c= '123Test123' );       
+		Product__c  prot= new Product__c( Name= 'Test 321Product',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together, 
+        // and insert the Interest (intr) to DB:
+        Database.insert(clin);
+        Client__c cl= [SELECT Name
+                          FROM  Client__c
+                          WHERE Phone__c= '123Test123'
+                          LIMIT 1];
+        intr.Client__c=  cl.Id; // one relation 
+        Database.insert(prot);
+        Product__c pr= [SELECT Name
+                          FROM  Product__c
+                          WHERE Name= 'Test 321Product'
+                          LIMIT 1];
+        intr.Product__c= pr.Id;// another relation 
+        // Got relations set, the Interest record (intr) is ready for the DB:
+        Database.insert(intr);
+        //Perform test:
+        Test.startTest();
+ 		Interest__c tesTintr= [SELECT Id, Status__c, Converted_Date__c
+                          FROM  Interest__c
+                          WHERE Converted_Date__c= :dFuture // 3 weeks forward)
+                          LIMIT 1];
+        tesTintr.Status__c= 'Converted';
+        update tesTintr;
+        // Let's retrieve the record to check on (tesTintrAfter):
+ 		Interest__c tesTintrAfter= [SELECT Name, Converted_Date__c, Client__c, Product__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        //the Deal relevant request:
+ 		Deal__c tesTdeal= [SELECT Name, Client__c, Product__c
+                          FROM  Deal__c
+                          WHERE Name= :tesTintrAfter.Name // relevant Deal
+                          LIMIT 1];
+        Test.stopTest();
+        // Verify 1):
+        // In this case Interest's Converted Date column
+        // must be updated to today's date
+        Date dAfter = tesTintrAfter.Converted_Date__c; // in the DB  
+		Date dTod= Date.Today();
+        System.assert( dFuture  !=  dAfter );
+        System.assertEquals(  dTod, dAfter );
+        // Verify 2):
+        // In this case the new Deal exists and 
+        // is related to the same masters
+        System.assertEquals( tesTintrAfter.Client__c,  tesTdeal.Client__c  );
+        System.assertEquals( tesTintrAfter.Product__c, tesTdeal.Product__c );
+    }
+    
+}

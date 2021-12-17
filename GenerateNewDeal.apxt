@@ -1,0 +1,14 @@
+trigger GenerateNewDeal on Interest__c (after update) {
+    
+    // After swiching the Interest stage from New to Converted
+    // the new Deal is to be born to track the sales funnel ahead
+    if (Trigger.new[0].Status__c== 'Converted' &&
+                Trigger.old[0].Status__c== 'New')   {
+        Deal__c de= new Deal__c (
+                    Stage__c= 'New',
+                    Name= Trigger.New[0].Name,
+                    Client__c= Trigger.New[0].Client__c,
+                    Product__c= Trigger.New[0].Product__c);
+        Database.insert(de);
+    }
+}
