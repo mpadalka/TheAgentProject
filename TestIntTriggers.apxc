@@ -1,0 +1,200 @@
+@isTest 
+public class TestIntTriggers {
+	@isTest static void Case1() {
+        // Check on the Case 1:
+		// A new Interest's status after insertion should be 'New',
+        // its Conversion date should be null; that's the only possible values
+        // in spite of the attempts to input any other values at the outset!
+		
+        DateTime dt = Date.Today();
+        Date dToday = Date.newInstance(dt.year(), dt.month(), dt.day());
+		// Get an Interest with its related masters ready for the DB:
+		Interest__c tesTintr= new Interest__c( 
+				Status__c= 'Converted',		// test value, not 'New'
+				Converted_Date__c= dToday );// test value, not null
+		Client__c   clin= new Client__c( Name= 'Test Client1',
+        						Phone__c= '1' );       
+		Product__c  prot= new Product__c( Name= 'Test Product1',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together
+        // and insert the Interest (tesTintr) to the DB:
+        Database.insert(clin);		// a Client__c instance
+        tesTintr.Client__c=  clin.Id; // one relation OK
+        Database.insert(prot);		//a Product__c instance
+        tesTintr.Product__c= prot.Id;// another relation OK
+		
+        Test.startTest(); //---Perform test:
+		Database.insert(tesTintr);
+ 		tesTintr= [SELECT Id, Status__c, Converted_Date__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        Test.stopTest(); //----------------- .
+		
+        // New Interest's status after insertion should be 'New',
+        // its Conversion_date should be null, the only possible values		
+        System.assertEquals('New', tesTintr.Status__c);
+        System.assertEquals( null, tesTintr.Converted_Date__c);  
+	}
+	@isTest static void Case2_3() {
+        // Check on these:
+        // If change the existing Interest's status from 'New' to 'Converted':
+        // 2) the new Deal should be created, relationships copied from the Interest
+		// 3) the Interest's Conversion_Date should change to today's one.
+		
+        DateTime dt = Date.Today();
+        Date dToday = Date.newInstance(dt.year(), dt.month(), dt.day());
+		// Get an Interest with its related masters ready for the DB:
+		Interest__c tesTintr= new Interest__c( 
+				Status__c= 'New',
+				Converted_Date__c= null );// test value, not today
+		Client__c   clin= new Client__c( Name= 'Test Client2_3',
+        						Phone__c= '1' );       
+		Product__c  prot= new Product__c( Name= 'Test Product2_3',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together
+        // and insert the Interest (tesTintr) to the DB:
+        Database.insert(clin);		// a Client__c instance
+        tesTintr.Client__c=  clin.Id; // one relation OK
+        Database.insert(prot);		//a Product__c instance
+        tesTintr.Product__c= prot.Id;// another relation OK
+		Database.insert(tesTintr);
+ 		tesTintr= [SELECT Id, Status__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        
+        Test.startTest(); //---Perform test:
+		// Store the Interest's Status for the check later on	
+		String CheckIfStatusWasNew= tesTintr.Status__c;
+		// Now let's update its status to 'Converted':
+        tesTintr.Status__c= 'Converted';
+        update tesTintr;
+ 		tesTintr= [SELECT Id, Name, Converted_Date__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        //the relevant Deal request:
+ 		List<Deal__c> tesTdeal= [SELECT Name
+                          FROM  Deal__c
+                          WHERE Name= :tesTintr.Name];// Name is the same for both		
+        Test.stopTest(); //----------------- .
+		
+        // Verify:
+        // 1) tesTdeal should contain the corresponding Deal, and the only one
+		System.assertEquals( 'New', CheckIfStatusWasNew );
+        System.assertEquals( 1, tesTdeal.size() );
+		// 2) Interest's Converted_Date must be updated to today's date
+        System.assertEquals(  dToday, tesTintr.Converted_Date__c );		
+	}	
+	@isTest static void Case4() {
+        // Check on the Case 4:
+        // If change the existing Interest's status from 'Converted' to 'New'
+        // then nothing is happening, that's forbidden business practice
+        DateTime dt = Date.Today();
+        Date dToday = Date.newInstance(dt.year(), dt.month(), dt.day());
+		// Get an Interest with its related masters ready for the DB:		
+		Interest__c tesTintr= new Interest__c( 
+				Status__c= 'New',
+				Converted_Date__c= null );// test value, not today
+		Client__c   clin= new Client__c( Name= 'Test Client4',
+        						Phone__c= '1' );       
+		Product__c  prot= new Product__c( Name= 'Test Product4',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together
+        // and insert the Interest (tesTintr) to the DB:
+        Database.insert(clin);		// a Client__c instance
+        tesTintr.Client__c=  clin.Id; // one relation OK
+        Database.insert(prot);		//a Product__c instance
+        tesTintr.Product__c= prot.Id;// another relation OK
+		Database.insert(tesTintr);
+ 		tesTintr= [SELECT Id, Converted_Date__c, Status__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+		// Now let's update its status to 'Converted':
+        tesTintr.Status__c= 'Converted';
+        update tesTintr;
+ 		tesTintr= [SELECT Id, Converted_Date__c, Status__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1];         
+		
+        Test.startTest(); //---Perform test:
+		String CheckIfStatusWasConverted= tesTintr.Status__c;
+		Date CheckIfDateWasToday= tesTintr.Converted_Date__c;
+ 		tesTintr= [SELECT Id 
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+		// Now let's try to update its status back to 'New':						  
+        tesTintr.Status__c= 'New';
+		tesTintr.Converted_Date__c= null;
+        update tesTintr;
+		String CheckIfStatusBecomeNew= tesTintr.Status__c;
+		Date CheckIfDateBecomeNull= tesTintr.Converted_Date__c;		
+ 		tesTintr= [SELECT Id, Status__c, Converted_Date__c 
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 		
+        Test.stopTest(); //----------------- .
+		
+        // Verify:
+        // 4.1) Interest's Status should remain 'Converted'
+		System.assertEquals( 'Converted', CheckIfStatusWasConverted );
+		System.assertEquals( 'New', CheckIfStatusBecomeNew );		
+        System.assertEquals( 'Converted', tesTintr.Status__c );
+		// 4.2) Interest's Converted_Date should remain today's
+        System.assertEquals(  dToday, CheckIfDateWasToday );
+        System.assertEquals(  null, CheckIfDateBecomeNull );		
+        System.assertEquals(  dToday, tesTintr.Converted_Date__c );			
+	}	
+	@isTest static void Case5() {
+        // Check on the Case 5:
+        // Let's delete an Interest.
+        // In this case the relevant Deal must be deleted along with it.
+		
+		Interest__c tesTintr= new Interest__c( 
+				Status__c= 'New',
+				Converted_Date__c= null );// test value, not today
+		Client__c   clin= new Client__c( Name= 'Test Client5',
+        						Phone__c= '1' );       
+		Product__c  prot= new Product__c( Name= 'Test Product5',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together
+        // and insert the Interest (tesTintr) to the DB:
+        Database.insert(clin);		// a Client__c instance
+        tesTintr.Client__c=  clin.Id; // one relation OK
+        Database.insert(prot);		//a Product__c instance
+        tesTintr.Product__c= prot.Id;// another relation OK
+		Database.insert(tesTintr);
+ 		tesTintr= [SELECT Id, Name
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+		Id IdToKeep= tesTintr.Id;
+		String NameToKeep= tesTintr.Name;
+        tesTintr.Status__c= 'Converted';
+        update tesTintr;
+        
+        Test.startTest(); //---Perform test:
+		Database.delete(tesTintr);
+ 		List<Interest__c> lint= [SELECT Id 
+                          FROM  Interest__c
+                          WHERE Id= :IdToKeep]; 
+        //the relevant Deal request:
+ 		List<Deal__c> lide= [SELECT Name 
+                          FROM  Deal__c
+                          WHERE Name= :NameToKeep];
+        Test.stopTest(); //----------------- .	
+		
+        // Verify:
+        // Off with an Interest means off with the corresponding Deal
+        System.assertEquals(true, lint.isEmpty());		
+        System.assertEquals(true, lide.isEmpty());			
+	}		
+}	
