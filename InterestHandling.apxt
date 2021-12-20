@@ -1,0 +1,21 @@
+trigger InterestHandling on Interest__c (before insert, before update) {
+     
+    // An Interest handling according to Trigger.is*
+    if (Trigger.isInsert)
+    {// A new Interest's status is New, the only input
+        	Trigger.new[0].Status__c= 'New';
+        	Trigger.new[0].Converted_Date__c= null;
+    } else {// Trigger.isUpdate == true, existing Interest handling
+        	DateTime dt= Date.Today();//  to be formated to Date
+    		Date dTod= Date.newInstance(dt.year(), dt.month(), dt.day());
+    		if ( Trigger.old[0].Status__c== 'New' &&
+                Trigger.new[0].Status__c== 'Converted') {
+                    Trigger.new[0].Converted_Date__c= dTod; 
+       		} else {// no changes are allowed
+        			Trigger.new[0].Status__c= Trigger.old[0].Status__c;
+        			Trigger.new[0].Converted_Date__c= 
+                            			Trigger.old[0].Converted_Date__c;                    
+                		}
+			}
+
+}

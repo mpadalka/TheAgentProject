@@ -1,0 +1,12 @@
+trigger DealTermination on Interest__c (after delete) {
+    
+    // After deleting an Interest  
+    // the relevant Deal(s:) is(are) to be deleted too
+    // by this here trigger
+	List<Deal__c> lide= [SELECT Name 
+				FROM Deal__c
+				WHERE Name= :Trigger.old[0].Name];
+	If (! lide.isEmpty())
+        Database.delete(lide);
+    
+}

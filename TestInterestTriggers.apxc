@@ -1,0 +1,101 @@
+@isTest
+public class TestInterestTriggers{
+    @isTest static void Test123() {
+        // Test data setup: create an Interest along with the related masters,
+        // and then update its status from New to Converted:
+        DateTime dt = Date.Today().addDays(+ 21); // 3 weeks forward)
+        Date dFuture = Date.newInstance(dt.year(), dt.month(), dt.day());
+        //
+		Interest__c intr= new Interest__c( Status__c= 'New',
+        						Converted_Date__c= dFuture ); 
+		Client__c   clin= new Client__c( Name= 'Test Client',
+        						Phone__c= '123Test123' );       
+		Product__c  prot= new Product__c( Name= 'Test 321Product',
+        						Balance__c= 0,
+                      			Price__c= 0.01 );
+        // Let's relate the above triade together
+        // and insert the Interest (intr) to DB:
+        Database.insert(clin);
+        Client__c cl= [SELECT Id, Phone__c
+                          FROM  Client__c
+                          WHERE Phone__c= '123Test123'
+                          LIMIT 1];
+        intr.Client__c=  cl.Id; // one relation OK
+        Database.insert(prot);
+        Product__c pr= [SELECT Id, Name
+                          FROM  Product__c
+                          WHERE Name= 'Test 321Product'
+                          LIMIT 1];
+        intr.Product__c= pr.Id;// another relation OK
+        // Got relations set, the Interest record (intr) is ready for the DB:
+        Database.insert(intr);
+        //-----------------Perform test:
+        Test.startTest();
+ 		Interest__c tesTintr= [SELECT Id, Status__c, Client__c, Product__c
+                          FROM  Interest__c
+                          WHERE Client__c= :cl.Id AND Product__c= :pr.Id
+                          LIMIT 1];
+        tesTintr.Status__c= 'Converted';
+        update tesTintr;
+        // Let's retrieve the record to check on (tesTintrAfter):
+ 		Interest__c tesTintrAfter= [SELECT Id, Name, Converted_Date__c, Client__c, Product__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        //the relevant Deal request:
+ 		Deal__c tesTdeal= [SELECT Name, Client__c, Product__c
+                          FROM  Deal__c
+                          WHERE Name= :tesTintrAfter.Name
+                          LIMIT 1];
+        // Let's try to change the existing Interest status
+        // from 'Converted' to 'New';
+        // and this shall not change the Interest's status at all
+        String IntrStatus= 'New';
+       	tesTintrAfter.Status__c= IntrStatus;
+        update tesTintrAfter;
+ 		tesTintrAfter= [SELECT Name, Converted_Date__c, Client__c, Product__c, Status__c
+                          FROM  Interest__c
+                          WHERE Id= :tesTintr.Id
+                          LIMIT 1]; 
+        IntrStatus= tesTintrAfter.Status__c;
+        // Prepare for terminating of the Interest and
+        // forthcoming deletion of the relevant Deal, which is to be checked out;
+        // so, let's store some of their attributes to temporary variables
+        Id DealId=	tesTdeal.Id;
+        Id IntrClie=tesTintrAfter.Client__c;
+        Id IntrProd=tesTintrAfter.Product__c;
+        Id DealClie=tesTdeal.Client__c;
+        Id DealProd=tesTdeal.Product__c;
+        // Off with the Interest:
+        Database.delete(tesTintrAfter);
+        // Attempt to retrieve the Deal from the DB, once again: 
+ 		List<Deal__c> foundDeal= [SELECT Id
+                          FROM  Deal__c
+                          WHERE Id= :DealId ];      
+        Test.stopTest();
+        //----------------- .
+        // Verify 1):
+        // In this case Interest's Converted_Date  
+        // must be updated to today's date
+        Date dAfter = tesTintrAfter.Converted_Date__c; // in the DB  
+		Date dTod= Date.Today();
+        System.assert( dFuture  !=  dAfter );
+        System.assertEquals(  dTod, dAfter );
+        // Verify 2):
+        // In this case the new Deal must be created, 
+        // related to the same masters as the Interest 
+        System.assertEquals( IntrClie,  DealClie );
+        System.assertEquals( IntrProd, DealProd );
+        // Verify 3):
+        // Existing Interest's status can be changed from 'New' to 'Converted' only.
+        // In this case the Interest's status should remain 'Converted'
+        // in spite of the attempt to change it
+        System.assertEquals('Converted', IntrStatus);  
+        // Verify 4):
+        // Let's delete an Interest.
+        // In this case the relevand Deal must be deleted along with it. 
+        // Thus, the list foundDeal should be empty
+        System.assertEquals(true, foundDeal.isEmpty());         
+    }
+    
+}
